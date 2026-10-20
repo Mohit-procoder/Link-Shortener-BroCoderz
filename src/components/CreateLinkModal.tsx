@@ -142,33 +142,51 @@ export function CreateLinkModal({
     setStep(2);
   };
 
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
 
-    const res = store.createLink({
-      title: title || 'Untitled Campaign Link',
-      destinationUrl,
-      customAlias: customAlias.trim() || undefined,
-      mobileDestinationUrl: mobileDestinationUrl.trim() || undefined,
-      expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
-      clickCap: clickCap ? parseInt(clickCap) : undefined,
-      password: password.trim() || undefined,
-      campaignId: campaignId || undefined,
-      tags,
-    });
+    let parsedExpiry: string | undefined = undefined;
+    if (expiresAt) {
+      const d = new Date(expiresAt);
+      if (!isNaN(d.getTime())) {
+        parsedExpiry = d.toISOString();
+      }
+    }
 
-    if (res.success && res.link) {
-      if (onLinkCreated) onLinkCreated(res.link.id);
-      onClose();
-      // Reset form
-      setStep(1);
-      setDestinationUrl('');
-      setTitle('');
-      setCustomAlias('');
-      setMobileDestinationUrl('');
-      setExpiresAt('');
-      setClickCap('');
-      setPassword('');
+    try {
+      const res = store.createLink({
+        title: title || 'Untitled Campaign Link',
+        destinationUrl,
+        customAlias: customAlias.trim() || undefined,
+        mobileDestinationUrl: mobileDestinationUrl.trim() || undefined,
+        expiresAt: parsedExpiry,
+        clickCap: clickCap && !isNaN(parseInt(clickCap)) ? parseInt(clickCap) : undefined,
+        password: password.trim() || undefined,
+        campaignId: campaignId || undefined,
+        tags,
+      });
+
+      if (res.success && res.link) {
+        const newId = res.link.id;
+        setStep(1);
+        setDestinationUrl('');
+        setTitle('');
+        setCustomAlias('');
+        setMobileDestinationUrl('');
+        setExpiresAt('');
+        setClickCap('');
+        setPassword('');
+        setSubmitError(null);
+        onClose();
+        if (onLinkCreated) onLinkCreated(newId);
+      } else {
+        setSubmitError(res.error || 'Failed to deploy link. Please check parameters.');
+      }
+    } catch (err: any) {
+      setSubmitError(err?.message || 'An unexpected error occurred while deploying the link.');
     }
   };
 
@@ -445,6 +463,13 @@ export function CreateLinkModal({
 
               </div>
             </>
+          )}
+
+          {submitError && (
+            <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-300 text-xs flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+              <span>{submitError}</span>
+            </div>
           )}
 
           {/* Footer Controls */}

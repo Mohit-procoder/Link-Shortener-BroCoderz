@@ -39,27 +39,18 @@ export function LinkDetailsModal({
   const [copied, setCopied] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
 
-  if (!isOpen || !linkId) return null;
+  const state = store.getState();
+  const link = linkId ? state.links.find(l => l.id === linkId) : undefined;
+  const clickEvents = linkId ? state.clickEvents.filter(ev => ev.linkId === linkId) : [];
+  const fullShortUrl = link ? `https://lnkp.ls/${link.code}` : '';
 
-  const link = store.getState().links.find(l => l.id === linkId);
-  const clickEvents = store.getState().clickEvents.filter(ev => ev.linkId === linkId);
-
-  if (!link) return null;
-
-  const fullShortUrl = `https://lnkp.ls/${link.code}`;
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(fullShortUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleToggleKillSwitch = () => {
-    store.toggleKillSwitch(link.id, 'Admin manual override from details view');
-  };
-
-  // Generate high-res QR code
+  // Generate high-res QR code unconditionally to strictly follow React Rules of Hooks
   useEffect(() => {
+    if (!isOpen || !link || !fullShortUrl) {
+      setQrDataUrl('');
+      return;
+    }
+
     QRCode.toDataURL(fullShortUrl, {
       width: 320,
       margin: 2,
@@ -70,7 +61,19 @@ export function LinkDetailsModal({
     })
       .then(url => setQrDataUrl(url))
       .catch(() => {});
-  }, [fullShortUrl, link.qrCodeConfig]);
+  }, [isOpen, link?.id, fullShortUrl, link?.qrCodeConfig]);
+
+  if (!isOpen || !linkId || !link) return null;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(fullShortUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleToggleKillSwitch = () => {
+    store.toggleKillSwitch(link.id, 'Admin manual override from details view');
+  };
 
   const handleDownloadQr = () => {
     if (!qrDataUrl) return;
